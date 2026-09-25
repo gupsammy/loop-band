@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Loop Band</title>
+<meta name="description" content="Tap pads to play a four-piece band in your browser. Every sound is made in code, and nothing you tap can sound wrong." />
+<meta name="theme-color" content="#131017" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23131017'/%3E%3Crect x='6' y='6' width='9' height='9' rx='2' fill='%23f2b441'/%3E%3Crect x='17' y='6' width='9' height='9' rx='2' fill='%23ef5f8a'/%3E%3Crect x='6' y='17' width='9' height='9' rx='2' fill='%23ff8a4c'/%3E%3Crect x='17' y='17' width='9' height='9' rx='2' fill='%23a88bff'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=JetBrains+Mono:wght@500;700&display=swap" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Loop Band</h1>
+    <p class="sub">Tap pads to play a band. Nothing you tap can sound wrong.</p>
+  </div>
+</header>
+
+<section class="transport" aria-label="Transport">
+  <button id="play" class="play" data-tip="Start or stop the band. Pads you tap join on the next [[bar]] line, so you can't come in off the beat.">
+    <span class="play-icon" aria-hidden="true"></span><span id="play-label">Start</span><kbd>Space</kbd>
+  </button>
+  <div class="field" data-tip="[[bpm|Tempo]] in beats per minute. 120 is walking pace; punk runs 160 and up. Changes land on the next bar.">
+    <span class="label">BPM</span>
+    <button class="step" id="bpm-down" aria-label="Slower">−</button>
+    <output id="bpm">120</output>
+    <button class="step" id="bpm-up" aria-label="Faster">+</button>
+  </div>
+  <label class="field" data-tip="The [[key]]: which note feels like home. The chord pads change name with it, but they keep their numbers.">
+    <span class="label">Key</span>
+    <select id="key"></select>
+  </label>
+  <div class="beats" id="beats" data-tip="The 4 [[beat|beats]] of the bar you're hearing. Anything you tap lands when the first dot comes round again." aria-hidden="true">
+    <i></i><i></i><i></i><i></i>
+  </div>
+  <div class="status" id="status" role="status"></div>
+</section>
+
+<main class="layout">
+  <section class="board" aria-label="Pads">
+    <div id="rows"></div>
+    <div class="chords-row">
+      <div class="row-head" data-tip="Chords for every pad that plays notes. A chord change lands on the next bar line.">
+        <b>Chord</b><span>for the band</span>
+      </div>
+      <div class="chords" id="chords"></div>
+    </div>
+    <div class="dj" data-tip="The DJ filter works on the whole band. Left: a [[low-pass filter]] muffles it. Right: a [[high-pass filter]] thins it. Middle is off. Double-click to reset.">
+      <span class="dj-label">DJ filter</span>
+      <span class="dj-end">muffled</span>
+      <input type="range" id="filter" min="-1" max="1" step="0.01" value="0" aria-label="DJ filter" />
+      <span class="dj-end">thin</span>
+    </div>
+  </section>
+
+  <aside class="panel" aria-label="Guide">
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="info" aria-selected="true">What's this?</button>
+      <button role="tab" data-tab="tricks" aria-selected="false">Tricks <span id="trick-count"></span></button>
+      <button role="tab" data-tab="words" aria-selected="false">Words</button>
+    </nav>
+    <div class="tab-body" id="tab-info" role="tabpanel"></div>
+    <div class="tab-body" id="tab-tricks" role="tabpanel" hidden></div>
+    <div class="tab-body" id="tab-words" role="tabpanel" hidden></div>
+  </aside>
+</main>
+
+<div id="tooltip" role="tooltip" hidden></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
