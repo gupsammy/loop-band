@@ -1,8 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ROWS, padNotes } from '../src/pads.js';
+import { STYLES, rowOf, padNotes, mapPads } from '../src/pads.js';
+
+const ROWS = STYLES.flatMap((st) => st.rows);
 import { CHORDS, chordName } from '../src/theory.js';
-import { WORDS, TRICKS, parseMarks } from '../src/learn.js';
+import { WORDS, TRICKS, FX_INFO, parseMarks } from '../src/learn.js';
 
 const KEYS = [...Array(12).keys()];
 // The C major scale's pitch classes, moved to each key: written out here, not taken from theory.js.
@@ -29,19 +31,30 @@ test('chords I, IV and V are major; ii, iii and vi are minor, in every key', () 
   });
 });
 
-test('each row stays in its own register', () => {
-  const span = (row) => {
-    const all = ROWS.find((r) => r.id === row).pads.flatMap((p) => KEYS.flatMap((k) => [0, 5].flatMap((ci) => padNotes(row, p.id, k, ci).flatMap((n) => n.midis))));
-    return [Math.min(...all), Math.max(...all)];
-  };
-  const bass = span('bass'), guitar = span('guitar');
-  assert.ok(bass[0] >= 28 && bass[1] <= 64, `bass ${bass}`); // E1 up to the octave above the highest root
-  assert.ok(guitar[0] >= 40, `guitar ${guitar}`); // nothing below the low E string
+test('each row stays in its own register, in every style', () => {
+  for (const st of STYLES) {
+    const span = (lane) => {
+      const all = rowOf(st.id, lane).pads.flatMap((p) => KEYS.flatMap((k) => [0, 5].flatMap((ci) => padNotes(lane, p.id, k, ci).flatMap((n) => n.midis))));
+      return [Math.min(...all), Math.max(...all)];
+    };
+    const bass = span('bass'), guitar = span('guitar');
+    assert.ok(bass[0] >= 28 && bass[1] <= 64, `${st.id} bass ${bass}`); // E1 up to the octave above the highest root
+    assert.ok(guitar[0] >= 40, `${st.id} guitar ${guitar}`); // nothing below the low E string
+  }
+});
+
+test('switching style keeps each playing lane on the pad in the same place, and stopped lanes stopped', () => {
+  const rock = { drums: 'rock', bass: null, guitar: 'chug', keys: 'whoa' };
+  const synth = mapPads(rock, 'synth');
+  assert.deepEqual(synth, { drums: 'sw-gated', bass: null, guitar: 'sw-rush', keys: 'sw-bells' });
+  assert.deepEqual(mapPads(synth, 'rock'), rock);
 });
 
 test('every marked word in the app has a glossary entry', () => {
   const texts = [
     ...ROWS.flatMap((r) => [r.about, ...r.pads.flatMap((p) => [p.tip, p.why])]),
+    ...STYLES.flatMap((st) => [st.about, st.why]),
+    ...Object.values(FX_INFO).flatMap((f) => [f.tip, f.why]),
     ...CHORDS.map((c) => c.feel),
     ...TRICKS.flatMap((t) => [t.how, t.why]),
   ];
@@ -83,7 +96,24 @@ const CASES = {
     [bar(band, { vol: { ...bar({}).vol, guitar: 0.3 } }), bar(band, { vol: { ...bar({}).vol, guitar: 0.5 } })],
   ],
   gear: [[bar(band), bar(band, { key: 1 })], [bar(band), bar(band, { key: 5 })]],
+  pump: [
+    [bar({ drums: 'rock', keys: 'pad' }, { fx: fx('keys', 'pump') }), bar({ drums: 'rock', keys: 'pad' }, { fx: fx('keys', 'pump') })],
+    [bar({ drums: 'rock', bass: 'roots' }, { fx: fx('keys', 'pump') }), bar({ drums: 'rock', bass: 'roots' }, { fx: fx('keys', 'pump') })], // pump on a silent row
+  ],
+  echo: [
+    [bar({ keys: 'arp' }, { fx: fx('keys', 'echo') }), bar({ keys: 'arp' }, { fx: fx('keys', 'echo') })],
+    [bar({ keys: 'arp' }, { fx: fx('keys', 'echo') }), bar({ keys: 'arp' })],
+  ],
+  gate: [
+    [bar({ drums: 'rock' }, { fx: fx('drums', 'gate') }), bar({ drums: 'rock' }, { fx: fx('drums', 'gate') })],
+    [bar({ bass: 'roots' }, { fx: fx('drums', 'gate') }), bar({ bass: 'roots' }, { fx: fx('drums', 'gate') })],
+  ],
+  title: [title(100), title(120)],
 };
+function fx(row, name) { return { [row]: { [name]: true } }; }
+function title(bpm) {
+  return [5, 5, 3, 3, 0, 0, 4, 4].map((chord) => bar({ drums: 'sw-gated', guitar: 'sw-updown', keys: 'sw-wide' }, { style: 'synth', bpm, chord }));
+}
 
 test('every trick has a case here', () => assert.deepEqual(Object.keys(CASES).sort(), TRICKS.map((t) => t.id).sort()));
 for (const [id, [yes, no]] of Object.entries(CASES)) {

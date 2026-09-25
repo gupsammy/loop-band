@@ -1,6 +1,6 @@
 // The guide panel (What's this? · Tricks · Words), tooltips, and the toast for finished tricks.
-import { WORDS, TRICKS, parseMarks } from './learn.js';
-import { rowById, padById, padNotes } from './pads.js';
+import { WORDS, TRICKS, FX_INFO, parseMarks } from './learn.js';
+import { LANES, rowOf, rowOfPad, padById, padNotes, styleById } from './pads.js';
 import { CHORDS, NOTE_NAMES, chordName, chordRootPc, rootFrom, scaleStep, noteName } from './theory.js';
 import { DRUM_NAMES } from './synth/drums.js';
 
@@ -14,7 +14,7 @@ export function marked(text, live = true) {
 }
 
 /* ---- the little note pictures on pads: time runs left to right over the bar's 8 eighths */
-const DRUM_LANE = { open: 0, hat: 0, snare: 1, kick: 2 };
+const DRUM_LANE = { open: 0, hat: 0, snare: 1, clap: 1, kick: 2 };
 export function roll(rowId, padId, big = false) {
   const pad = padById(rowId, padId), W = 80, H = big ? 40 : 24, rects = [];
   if (rowId === 'drums') {
@@ -52,7 +52,7 @@ export function initGuide(engine) {
   function infoHtml() {
     const { key } = engine.next, chord = heard().chord;
     if (showing.kind === 'pad') {
-      const row = rowById(showing.row), pad = padById(showing.row, showing.pad), b = engine.audible();
+      const row = rowOfPad(showing.row, showing.pad), pad = padById(showing.row, showing.pad), b = engine.audible();
       const live = b && b.pads[row.id] === pad.id, next = engine.next.pads[row.id] === pad.id && !live && engine.playing;
       let notes;
       if (row.id === 'drums') {
@@ -82,10 +82,25 @@ export function initGuide(engine) {
         <p>${marked(`The [[root]] is ${NOTE_NAMES[tri[0] % 12]}. The [[third]] is ${third} [[semitone|semitones]] up, so it is ${third === 4 ? '[[major]]: bright' : '[[minor]]: darker'}.`)}</p>
         <h3>Its number</h3><p>${marked(`It is chord ${c.roman} in ${NOTE_NAMES[key]} major: built on note ${c.degree + 1} of the [[scale]]. Change the key and its name changes, but its number and its feel stay the same. See [[roman numerals]].`)}</p>`;
     }
+    if (showing.kind === 'fx') {
+      const row = rowOf(engine.next.style, showing.row), f = FX_INFO[showing.fx], on = engine.fx[showing.row][showing.fx];
+      return `<div style="--c:${row.color}"><h2>${f.name} · ${row.name} <span class="chip${on ? ' live' : ''}">${on ? 'on' : 'off'}</span></h2>
+        <p>${marked(f.tip)}</p><h3>Why use it</h3><p>${marked(f.why)}</p>
+        <h3>Hear it</h3><p>Switch it on and off while the band plays. Effects act at once, not on the next bar.</p></div>`;
+    }
     if (showing.kind === 'row') {
-      const row = rowById(showing.row);
+      const row = rowOf(engine.next.style, showing.row);
       return `<div style="--c:${row.color}"><h2>${row.name} <span class="chip">${row.role}</span></h2><p>${marked(row.about)}</p>
         <h3>Its pads</h3>${row.pads.map((p) => `<p><b>${p.name}.</b> ${marked(p.tip)}</p>`).join('')}</div>`;
+    }
+    if (showing.kind === 'style') {
+      const st = styleById(engine.next.style), rows = LANES.map((lane) => rowOf(st.id, lane));
+      const on = rows.flatMap((r) => Object.keys(st.fx[r.id] || {}).map((f) => `${FX_INFO[f].name} on the ${r.name.toLowerCase()}`));
+      return `<h2>${st.name} <span class="chip">style</span></h2><p>${marked(st.about)}</p>
+        <h3>What makes it sound this way</h3><p>${marked(st.why)}</p>
+        <h3>The band</h3>${rows.map((r) => `<p style="--c:${r.color}" class="band-line"><b>${r.name}</b> · ${r.role}</p>`).join('')}
+        <h3>Effects it switches on</h3><p>${on.length ? on.join(' · ') + '.' : 'None: a rock band sounds best dry and loud.'} You can still switch any of them yourself.</p>
+        <p>Pads that were playing move to the pad in the same place, so the song keeps going.</p>`;
     }
     return `<h2>Start here</h2>
       <ol class="start">
@@ -93,6 +108,7 @@ export function initGuide(engine) {
         <li>Add <b>Bass</b> (<kbd>A</kbd>), then <b>Guitar</b> (<kbd>Z</kbd>). Each joins on the next bar, so you can't be late.</li>
         <li>Tap chords <b>1 → 5 → 6 → 4</b>, one per bar. That's the most famous ${marked('[[progression]]')} in pop.</li>
         <li>Tap a lit pad again to stop that row. Try the <b>DJ filter</b> too.</li>
+        <li>Switch <b>Style</b> to hear the same song as 1980s synthwave.</li>
       </ol>
       <p>Tap any pad or chord to see what it is here. Underlined words explain themselves when you hover or tap them.</p>
       <p><button class="link" data-open="tricks">Try the tricks →</button></p>`;
@@ -169,6 +185,8 @@ export function initGuide(engine) {
     showPad: (row, pad) => show({ kind: 'pad', row, pad }),
     showChord: (ci) => show({ kind: 'chord', ci }),
     showRow: (row) => show({ kind: 'row', row }),
+    showFx: (row, fx) => show({ kind: 'fx', row, fx }),
+    showStyle: () => show({ kind: 'style' }),
     refresh,
     onBar: checkTricks,
   };

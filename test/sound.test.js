@@ -1,8 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { pluck } from '../src/synth/strings.js';
-import { renderClip } from '../src/render.js';
-import { ROWS } from '../src/pads.js';
+import { renderClip, PRE } from '../src/render.js';
+import { STYLES, padById } from '../src/pads.js';
+
+const ROWS = STYLES.flatMap((st) => st.rows);
 
 // The strongest repeat in the signal (autocorrelation), as a frequency. A parabola through the best lag and its
 // neighbours finds the period between whole samples, so the measurement is good to a few cents.
@@ -50,5 +52,19 @@ test('no clip peaks above 0 dBFS, at the slowest and fastest tempo and in the hi
       for (const ch of [L, R]) for (const v of ch) peak = Math.max(peak, Math.abs(v));
       assert.ok(peak < 1, `${row.id} ${pad.id} chord ${chord} at ${bpm} BPM peaks at ${peak.toFixed(3)}`);
     }
+  }
+});
+
+test('the snare stem holds the snares and claps and nothing else', () => {
+  const sr = 44100, bpm = 120, e8 = 30 / bpm;
+  for (const pad of ['rock', 'sw-gated', 'sw-four']) {
+    const { snare } = renderClip({ row: 'drums', pad, chord: 0, key: 0, bpm, sr });
+    const hitAt = new Set(padById('drums', pad).hits.filter(([, d]) => d === 'snare' || d === 'clap').map(([e]) => e));
+    const energy = (e) => { let s = 0; for (let i = Math.round((PRE + e * e8) * sr), j = i + Math.round(0.05 * sr); i < j; i++) s += snare[i] * snare[i]; return s; };
+    const hits = [...hitAt].map(energy);
+    // eighths with no snare on them or just before them, so no snare tail rings there either
+    const quiet = [...Array(8).keys()].filter((e) => !hitAt.has(e) && !hitAt.has(e - 1)).map(energy);
+    assert.ok(hits.length && quiet.length, pad);
+    assert.ok(Math.max(...quiet) < Math.min(...hits) / 1000, `${pad}: quiet ${Math.max(...quiet)} vs hits ${Math.min(...hits)}`);
   }
 });

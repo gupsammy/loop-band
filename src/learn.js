@@ -55,6 +55,46 @@ export const WORDS = {
   'drop': 'The moment everything comes back in after a build-up or a break.',
   'breakdown': 'A stripped-back section: fewer parts, often half-time drums.',
   'arrangement': 'Deciding which parts play when. Taking parts away is as strong as adding them.',
+  // effects
+  'reverb': 'The wash of reflections a room adds to a sound.',
+  'echo': 'Repeats of a sound, each quieter than the last. Also called delay.',
+  'ping-pong': 'Echoes that bounce between the left and right speakers.',
+  'dotted eighth': 'An eighth note and a half: three sixteenths long. Echoes this long land between the notes.',
+  'feedback': "Sending an effect's output back into its input, so an echo repeats again and again.",
+  'sidechain pump': 'Every kick briefly turns the other parts down, and they swell back up. The music breathes with the beat.',
+  'gated reverb': 'A big reverb cut off sharply after a moment: the huge, short snare of 1980s pop.',
+  'stem': 'One part of a mix on its own, such as just the snare.',
+  // synths
+  'synthesizer': 'An instrument that makes sound from electricity or code instead of strings, skins or air.',
+  'synthwave': 'Music made to sound like 1980s film and game soundtracks: drum machines, saw-wave synths and big echoes.',
+  'drum machine': 'A box that plays drum sounds in perfect time. Its drums are synthesized, not recorded.',
+  'clap': 'A burst of noise shaped like several hands clapping at once. Drum machines use it in place of a snare.',
+  'sawtooth wave': 'A wave that rises slowly and drops at once. Full of overtones, so it sounds bright and buzzy. Most synth pads start here.',
+  'square wave': 'A wave that jumps between high and low. Hollow and reedy, like an old game console.',
+  'sine wave': 'The purest wave: one pitch and nothing else. Smooth, round and soft.',
+  'sub bass': 'Bass so low you feel it more than hear it, usually a sine wave.',
+  'detune': 'Tuning copies of a sound slightly apart. They drift in and out of step, which makes the sound wide and shimmering.',
+  'vibrato': 'A small, fast wobble in pitch, as a singer or violinist adds to a held note.',
+  'fm synthesis': 'One wave bends the pitch of another very fast, which makes bell, glass and electric-piano sounds.',
+};
+
+// The effect switches in each row head.
+export const FX_INFO = {
+  pump: {
+    name: 'Pump',
+    tip: 'A [[sidechain pump]]: this row ducks on every [[kick]] and swells back.',
+    why: 'Dance and synthwave producers use it so the kick punches through and the whole track pulses. It needs the drums: no kick, no pump.',
+  },
+  echo: {
+    name: 'Echo',
+    tip: 'Sends this row to a [[ping-pong]] [[echo]], a [[dotted eighth]] long, with some [[feedback]].',
+    why: "Echoes that land between the notes turn a simple part into a rolling one. Punch Clock's title music does this to its arpeggio.",
+  },
+  gate: {
+    name: 'Gate',
+    tip: 'Adds [[gated reverb]] to the [[snare]]: a big room that shuts off after a fifth of a second.',
+    why: 'The snare sounds huge without washing over the next beat. The drums keep a separate snare [[stem]] so only the snare gets it.',
+  },
 };
 
 // Split text with [[word]] marks into pieces: strings, and { word, text } for glossary words.
@@ -71,7 +111,7 @@ export function parseMarks(text) {
 }
 
 // A bar record, as the engine writes one per bar:
-//   { run, chord, key, bpm, pads: { drums, bass, guitar, keys } (pad id or null), vol: { row: 0–1 }, fMin, fMax, fEnd }
+//   { run, style, chord, key, bpm, pads: { drums, bass, guitar, keys } (pad id or null), vol: { row: 0–1 }, fMin, fMax, fEnd }
 // fMin/fMax/fEnd: the DJ filter's lowest, highest and last value during the bar (-1 muffled … 0 off … 1 thin).
 const PITCHED = ['bass', 'guitar', 'keys'];
 const playingCount = (b) => Object.values(b.pads).filter(Boolean).length;
@@ -81,6 +121,7 @@ function* windows(h, len) {
   for (let i = 0; i + len <= h.length; i++) if (h[i + len - 1].run === h[i].run) yield h.slice(i, i + len);
 }
 const some = (h, len, test) => { for (const w of windows(h, len)) if (test(w)) return true; return false; };
+const PITCHED_FX = (b, fx) => PITCHED.some((r) => b.pads[r] && b.fx?.[r]?.[fx]);
 const chordsInRow = (seq) => (h) => some(h, seq.length, (w) => w.every((b, i) => b.chord === seq[i] && pitchedCount(b) > 0));
 
 export const TRICKS = [
@@ -136,6 +177,31 @@ export const TRICKS = [
       const low = h.findIndex((b) => b.pads.guitar && b.pads.bass && b.vol.guitar <= 0.45);
       return low >= 0 && h.slice(low + 1).some((b) => b.run === h[low].run && b.pads.guitar && b.vol.guitar >= 0.7);
     },
+  },
+  {
+    id: 'pump', name: 'Feel the pump',
+    how: 'With the drums playing, switch on Pump for a row that holds notes (try the keys Pad) for two bars. Then switch it off to hear the difference.',
+    why: 'A [[sidechain pump]] makes room for the [[kick]]: the held notes dip on every beat, so the whole band seems to breathe.',
+    check: (h) => some(h, 2, (w) => w.every((b) => b.pads.drums && PITCHED_FX(b, 'pump'))),
+  },
+  {
+    id: 'echo', name: 'Echo, echo',
+    how: 'Switch on Echo for a row that is playing (try the keys Arp) and let it run for two bars.',
+    why: 'A [[dotted eighth]] [[echo]] lands between the notes you play, so eight notes a bar sound like a busy, rolling pattern.',
+    check: (h) => some(h, 2, (w) => w.every((b) => PITCHED_FX(b, 'echo'))),
+  },
+  {
+    id: 'gate', name: 'Big eighties snare',
+    how: 'Switch on Gate for the drums while a beat plays. Switch it off and on to compare.',
+    why: '[[gated reverb|Gated reverb]] gives the [[snare]] a huge room for an instant, then cuts it, so the beat stays tight.',
+    check: (h) => some(h, 2, (w) => w.every((b) => b.pads.drums && b.fx?.drums?.gate)),
+  },
+  {
+    id: 'title', name: 'The Punch Clock title',
+    how: 'Switch to Synthwave, set 100 BPM, and play the arp and the pad. Then play chords vi, vi, IV, IV, I, I, V, V, one per bar (keys 6, 4, 1, 5, two bars each).',
+    why: '[[synthwave|Synthwave]] loves this sad loop: two bars per chord gives the [[echo]] and the [[sidechain pump]] time to breathe. Punch Clock\'s title music is exactly this, in A minor.',
+    check: (h) => some(h, 8, (w) => w.every((b, i) => b.style === 'synth' && b.bpm === 100 && b.pads.guitar && b.pads.keys
+      && b.chord === [5, 5, 3, 3, 0, 0, 4, 4][i])),
   },
   {
     id: 'gear', name: 'Truck driver\'s gear change',

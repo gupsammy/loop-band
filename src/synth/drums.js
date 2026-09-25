@@ -45,16 +45,64 @@ function hat(out, sr, i0, vel, r, open) {
   }
 }
 
-const DRUM = { kick, snare, hat: (o, sr, i, v, r) => hat(o, sr, i, v, r, false), open: (o, sr, i, v, r) => hat(o, sr, i, v, r, true) };
-export const DRUM_NAMES = { kick: 'kick', snare: 'snare', hat: 'hi-hat', open: 'open hi-hat' };
-
-// Hits [[time in seconds, drum, strength]] → { kit (centre), hats (for panning) }. A drummer is never exactly on
-// the grid or equally hard twice, so each hit moves by a few milliseconds and its strength by a few percent.
-export function drums(n, sr, hits, seed) {
-  const kit = new Float32Array(n), hats = new Float32Array(n), r = rng(seed);
-  for (const [t, name, vel] of hits) {
-    const at = Math.max(0, Math.round((t + gauss(r) * 0.003) * sr));
-    DRUM[name](name === 'hat' || name === 'open' ? hats : kit, sr, at, vel * (0.92 + 0.16 * r()), r);
+/* ---- the drum machine (as in Punch Clock): simpler recipes, tuned for punch rather than realism */
+// Kick: a sine gliding from 150 Hz down to 44 Hz in a tenth of a second, and a short triangle-wave click.
+function machineKick(out, sr, i0, vel) {
+  const n = Math.round(0.38 * sr);
+  let p1 = 0, p2 = 0;
+  for (let i = 0; i < n && i0 + i < out.length; i++) {
+    const t = i / sr, f = 44 + 106 * Math.exp(-t / 0.03), fc = 250 + 850 * Math.exp(-t / 0.004);
+    p1 += f / sr; p2 += fc / sr;
+    const body = Math.sin(TAU * p1) * Math.exp(-t / 0.12) * Math.min(1, t / 0.001);
+    const click = t < 0.022 ? (1 - 4 * Math.abs((p2 % 1) - 0.5)) * Math.exp(-t / 0.006) * 0.25 : 0;
+    out[i0 + i] += (body * 0.95 + click) * vel;
   }
-  return { kit, hats };
+}
+// Snare: noise through a band around 2.4 kHz, and a triangle tone falling from 185 to 150 Hz.
+function machineSnare(out, sr, i0, vel, r) {
+  const n = Math.round(0.2 * sr), bp = new Biquad('bp', 2400, 0.7, 0, sr), hp = new Biquad('hp', 800, 0.7, 0, sr);
+  let p = 0;
+  for (let i = 0; i < n && i0 + i < out.length; i++) {
+    const t = i / sr;
+    p += (150 + 35 * Math.exp(-t / 0.03)) / sr;
+    const tri = (1 - 4 * Math.abs((p % 1) - 0.5)) * Math.exp(-t / 0.035) * 0.35;
+    out[i0 + i] += (hp.tick(bp.tick(r() * 2 - 1)) * 1.4 * Math.exp(-t / 0.05) + tri) * vel;
+  }
+}
+// Clap: three quick bursts of noise (several hands, not quite together), then a short tail.
+function clap(out, sr, i0, vel, r) {
+  const bp = new Biquad('bp', 1300, 1.3, 0, sr), n = Math.round(0.22 * sr);
+  for (let i = 0; i < n && i0 + i < out.length; i++) {
+    const t = i / sr, k = Math.floor(t / 0.011), tb = t - k * 0.011;
+    const env = k < 2 ? Math.exp(-tb / 0.004) : Math.exp(-(t - 0.022) / 0.05);
+    out[i0 + i] += bp.tick(r() * 2 - 1) * env * 1.6 * vel;
+  }
+}
+// Hats: high-passed noise with a lift at 10 kHz.
+function machineHat(out, sr, i0, vel, r, open) {
+  const n = Math.round((open ? 0.3 : 0.06) * sr), hp = new Biquad('hp', 7000, 0.7, 0, sr), pk = new Biquad('peak', 10000, 1, 6, sr);
+  for (let i = 0; i < n && i0 + i < out.length; i++) {
+    const t = i / sr;
+    out[i0 + i] += pk.tick(hp.tick(r() * 2 - 1)) * Math.exp(-t / (open ? 0.08 : 0.015)) * vel * 0.5;
+  }
+}
+
+const KITS = {
+  acoustic: { kick, snare, hat: (o, sr, i, v, r) => hat(o, sr, i, v, r, false), open: (o, sr, i, v, r) => hat(o, sr, i, v, r, true) },
+  machine: { kick: machineKick, snare: machineSnare, clap, hat: (o, sr, i, v, r) => machineHat(o, sr, i, v, r, false), open: (o, sr, i, v, r) => machineHat(o, sr, i, v, r, true) },
+};
+export const DRUM_NAMES = { kick: 'kick', snare: 'snare', clap: 'clap', hat: 'hi-hat', open: 'open hi-hat' };
+
+// Hits [[time in seconds, drum, strength]] → three stems: { kick, snare, hats }. The snare (and clap) get their own
+// stem so the mixer can send them alone to the gated reverb. A drummer is never exactly on the grid or equally hard
+// twice, so each hit moves by a few milliseconds and its strength by a few percent. A drum machine is, and doesn't.
+const STEM = { kick: 'kick', snare: 'snare', clap: 'snare', hat: 'hats', open: 'hats' };
+export function drums(n, sr, hits, seed, kitName = 'acoustic') {
+  const stems = { kick: new Float32Array(n), snare: new Float32Array(n), hats: new Float32Array(n) }, r = rng(seed);
+  const kit = KITS[kitName], human = kitName === 'acoustic';
+  for (const [t, name, vel] of hits) {
+    const at = Math.max(0, Math.round((t + (human ? gauss(r) * 0.003 : 0)) * sr));
+    kit[name](stems[STEM[name]], sr, at, vel * (human ? 0.92 + 0.16 * r() : 1), r);
+  }
+  return stems;
 }

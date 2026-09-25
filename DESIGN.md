@@ -10,12 +10,12 @@ cut down so each part can be read and understood.
 ## What you see
 
 ```
-  LOOP BAND        [▶ START]   BPM − 120 +   KEY [C major ▾]    ● ● ● ●  (beat)
+  LOOP BAND   [▶ START]  STYLE [Rock|Synthwave]  BPM − 120 +  KEY [C major ▾]  ● ● ● ●
 
-  DRUMS   [Rock ] [Punk ] [Half ] [Disco]   [stop]
-  BASS    [Roots] [Octav] [Fifth] [Hold ]   [stop]
-  GUITAR  [Strum] [Chug ] [Skank] [Ring ]   [stop]
-  KEYS    [Pad  ] [Arp  ] [Stabs] [Tune ]   [stop]
+  DRUMS   (gate)        [Rock ] [Punk ] [Half ] [Disco]   [stop]
+  BASS    (pump)(echo)  [Roots] [Octav] [Fifth] [Hold ]   [stop]
+  GUITAR  (pump)(echo)  [Strum] [Chug ] [Skank] [Ring ]   [stop]
+  KEYS    (pump)(echo)  [Pad  ] [Arp  ] [Stabs] [Whoa ]   [stop]
 
   CHORD   [ C  I ] [ Dm ii ] [ Em iii ] [ F IV ] [ G V ] [ Am vi ]
 
@@ -40,6 +40,49 @@ cut down so each part can be read and understood.
   slider across the whole band: left muffles it (low-pass), right thins it
   (high-pass), centre is off. Sweeping it back to centre is the classic build-up.
 
+## Effects
+
+Each row head has effect switches. They are mixer settings, so they act at once
+(not on the next bar), and tapping one also explains it in "What's this?".
+
+| Switch | Rows | What it does |
+|---|---|---|
+| **Pump** | bass, guitar, keys | Sidechain pump. Pumped rows share one volume control that dips 55% on every kick of the drums pad now playing and swells back over three 16ths, so the music breathes with the kick. The engine knows each kick's time from the pad's data, so the dips are scheduled in advance, not detected. No drums, no pump. |
+| **Echo** | bass, guitar, keys | A send to one shared ping-pong delay: a dotted eighth (three 16ths) long, 35% fed back, darkened each repeat, echoes alternating left and right. The delay follows the tempo from each bar line. |
+| **Gate** | drums | Gated reverb, the 1980s snare. Drum clips also carry the snare on its own (a stem). With Gate on, the stem feeds a big reverb whose output opens for 200 ms at each snare hit, then slams shut. |
+
+Wiring: row gain → dry gain → mix, and row gain → wet gain → pump → mix. The
+Pump switch cross-fades dry and wet in 20 ms. Echo and Gate are send levels.
+
+## Styles
+
+A style is a band: four rows of pads in the same four lanes. The lane ids
+(`drums bass guitar keys`) are the rock band's; other styles give each lane
+its own name, colour and sound. A picker in the transport switches style.
+
+- Switching style moves each playing lane to the pad in the same position in
+  the new style, from the next bar. Nothing stops.
+- Each style brings its own effect settings. Turning an effect off after the
+  switch is the fastest way to hear what it adds.
+- A row's level, ring-out tail and cross-fade time live on the row, since a
+  synth pad that fades in needs a slow cross-fade where a guitar needs a cut.
+
+**Rock**: the band above. No effects on.
+
+**Synthwave** (after punch-clock's title music). Effects: Gate on drums, Pump
+on bass and pad, Echo on the arp.
+
+| Lane | Name | Pads |
+|---|---|---|
+| drums | Drum machine | Gated (kick 1 and 3, snare 2 and 4, off-beat hats), Four (four on the floor with a clap), Half, Drive (16th hats). Exactly on the grid, as a machine plays. |
+| bass | Synth bass | Pulse (every beat, octave jump on 4), Octaves (eighths), Roll (16ths around the beat), Sub (one held sine). A saw plus a sine an octave down. |
+| guitar | Arp | Up-down (the title arp: square-wave plucks up and down the chord), Rush (16th saw arp), Hook (a lead line with vibrato), Stabs (off-beat chords). |
+| keys | Pad | Wide (three detuned saws per note), Swell (filter opens over the bar), Chop (the chord cut into 16ths), Bells (FM bells). |
+
+Pad ids are unique within a lane across styles, so clip keys need no style
+field. Each bar in the history still records its style, so a trick can ask
+for one.
+
 ## Learning as you play
 
 - **Tooltips.** Every pad, chord, slider and button says what it does on hover,
@@ -50,7 +93,8 @@ cut down so each part can be read and understood.
   (`src/learn.js`); tips mark a term as `[[term]]`.
 - **Tricks.** A list of short recipes: "Drop out: stop everything but the drums
   for a bar, then bring it all back", "Play I – V – vi – IV, one chord a bar",
-  "Sweep the filter from muffled to open over two bars". Each trick has a check
+  "Sweep the filter from muffled to open over two bars", "Play the Punch Clock
+  title: Synthwave, 100 BPM, vi vi IV IV I I V V". Each trick has a check
   that reads what the band played bar by bar, and ticks itself when you do it.
 
 ## Music rules (why nothing sounds wrong)
@@ -77,6 +121,8 @@ stutters, then played back by Web Audio on the bar grid.
 | Bass | The same string model an octave or two down, darker, with light drive. |
 | Drums | Kick: a sine wave whose pitch falls fast, plus a click. Snare: two tones plus filtered noise. Hi-hat: high-passed noise with a short (closed) or long (open) tail. |
 | Keys | Two slightly detuned saw waves (band-limited so they don't alias) through a resonant low-pass filter with its own envelope. |
+| Synth voices | Saw or square waves, two or three per note a few cents apart, an optional sine an octave down, a resonant low-pass whose cutoff falls (pluck) or rises (swell) over the note. Bells are FM: one sine bends the pitch of another at four times its speed. |
+| Drum machine | The same drum recipes with no timing wobble, a longer deeper kick, and a clap: three quick noise bursts and a tail. |
 
 What makes it sound played rather than printed:
 
@@ -97,9 +143,10 @@ is computed decaying noise, not a recording), a gentle compressor and a limiter.
 - A scheduler runs every 25 ms and places each bar that starts within the next
   0.15 s (2.5 s when the tab is hidden, where timers slow down). The short look-ahead
   means a tap up to 0.15 s before a bar line still makes that bar.
-- Pitched rows choke: when a row's next clip starts, the old one fades out in
-  20 ms, as a player stops the old chord to play the new one. Drum clips overlap,
-  so cymbals ring over the bar line.
+- Pitched rows choke: when a row's next clip starts, the old one fades out, as a
+  player stops the old chord to play the new one: 20 ms for plucked and struck
+  rows, a slow cross-fade for pads. Drum clips overlap, so cymbals ring over the
+  bar line.
 - A clip that isn't computed yet when its bar comes plays silence for that bar.
   The worker queue computes clips for lit pads on the current chord first, then all
   pads on the current chord, then every other chord.
@@ -110,13 +157,13 @@ is computed decaying noise, not a recording), a gentle compressor and a limiter.
 ```
 index.html, styles.css
 src/theory.js        keys, chords, scales, note numbers → frequency (pure)
-src/pads.js          the pad catalog: notes as data, names, explanations (pure)
+src/pads.js          styles and their pads: notes as data, names, explanations (pure)
 src/learn.js         glossary terms and tricks with their checks (pure)
 src/synth/dsp.js     filters, noise, seeded random (pure)
 src/synth/*.js       guitar, bass, drums, keys: spec → Float32Array (pure)
-src/render.js        one clip spec → { L, R } (pure; runs in workers and Node)
+src/render.js        one clip spec → { L, R, snare? } (pure; runs in workers and Node)
 src/worker.js        the worker wrapper around render.js
-src/engine.js        AudioContext, mix bus, clip cache, scheduler
+src/engine.js        AudioContext, mixer and effects, clip cache, scheduler
 src/ui.js            pad board, transport, keyboard, the per-frame lighting
 src/guide.js         the guide panel (What's this? · Tricks · Words), tooltips
 src/main.js          boot
@@ -138,6 +185,8 @@ runs in Node, so tests measure real output.
 - The same clip spec renders to identical samples twice.
 - No clip peaks above 0 dBFS.
 - Each trick ticks on a bar history that does it, and not on one that nearly does.
+- A drum clip's snare stem holds the snare hits and nothing at the kicks.
+- Switching style keeps each playing lane on the pad in the same position.
 - Every `[[term]]` in the pads' tips has a glossary entry.
 
 ## Later

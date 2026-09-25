@@ -3,8 +3,9 @@ import { renderClip } from './render.js';
 
 self.onmessage = ({ data: { key, spec } }) => {
   try {
-    const { L, R } = renderClip(spec);
-    self.postMessage({ key, L, R }, [L.buffer, R.buffer]); // hand the buffers over instead of copying them
+    const { L, R, snare } = renderClip(spec);
+    // hand the buffers over instead of copying them
+    self.postMessage({ key, L, R, snare }, [L.buffer, R.buffer, ...(snare ? [snare.buffer] : [])]);
   } catch (err) {
     self.postMessage({ key, error: String(err && err.message || err) });
   }

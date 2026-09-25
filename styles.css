@@ -49,6 +49,11 @@ h1::after { content: ''; display: inline-block; width: 12px; height: 12px; margi
 .step { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); font-size: 18px; line-height: 1; }
 #bpm { font: 700 17px/1 var(--mono); min-width: 3ch; text-align: center; }
 select { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+.seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); }
+.seg button { border: 0; border-radius: 7px; padding: 5px 11px; background: transparent; color: var(--muted); font-weight: 800; font-size: 14px; }
+.seg button:hover { color: var(--text); }
+.seg button[aria-pressed='true'] { background: var(--cream); color: var(--ink); }
+body[data-style='synth'] .seg button[aria-pressed='true'] { background: #ff4fa3; }
 .beats { display: inline-flex; gap: 7px; }
 .beats i { width: 11px; height: 11px; border-radius: 50%; background: var(--line); transition: background 60ms; }
 .beats i.on { background: var(--cream); }
@@ -66,6 +71,13 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
 .row-head b { font-weight: 800; font-size: 16px; line-height: 1.1; }
 .row-head span { color: var(--muted); font-size: 12.5px; line-height: 1.2; }
 .vol { width: 100%; margin: 6px 0 0; accent-color: var(--c); height: 18px; }
+.fx { display: flex; gap: 4px; margin-top: 5px; }
+.fx-btn {
+  font: 700 10px/1 var(--mono); letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 6px; border-radius: 5px;
+  border: 1px solid var(--line); background: transparent; color: var(--muted);
+}
+.fx-btn:hover { border-color: var(--c); color: var(--text); }
+.fx-btn[aria-pressed='true'] { background: var(--c); border-color: var(--c); color: var(--ink); }
 
 .pad {
   position: relative; min-height: 76px; padding: 9px 10px 8px; border-radius: var(--radius); text-align: left;
@@ -186,7 +198,9 @@ dl.words dd { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
   .row { margin-top: 6px; }
   .row .row-head { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 10px; padding: 2px 0 0 10px; }
   .row .row-head span { flex: none; }
-  .vol { margin: 0 0 0 auto; width: 110px; }
+  .row .row-head span:not(.fx) { display: none; }
+  .fx { margin: 0; }
+  .vol { margin: 0 0 0 auto; width: 96px; }
   .pad { min-height: 64px; padding: 7px 7px 6px; }
   .pad-name { font-size: 13.5px; }
   .pad kbd, .chord kbd, .play kbd { display: none; }
